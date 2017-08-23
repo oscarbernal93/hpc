@@ -8,7 +8,7 @@
 int main (int argc, char *argv[]) 
 {
 	int **a, **b, **c;
-	int ra, rb, ca, cb, tid, nt, i, j, k, chunk;
+	int ra, rb, ca, cb, tid, nt, id, i, j, k,chunk;
 	printf("Size of first matrix: ");
 	scanf("%d %d", &ra, &ca);
 	printf("Size of second matrix: ");
@@ -25,31 +25,29 @@ int main (int argc, char *argv[])
 	reserve_mat(&c,ra,cb);
 	
 	fill_mat(a ,ra ,ca);
-	fill_mat(b ,rb ,cb);
+	fill_mat(b ,rb ,cb);	
+	print_mat(a,ra,ca);
+	print_mat(a,ra,ca);
+
 	printf("Size of chunk: ");
-	scanf("%d ",&chunk);
+	scanf("%d",&chunk);
+	
+	#pragma omp parallel shared(a,b,c,ra, rb, ca, cb,nt,chunk) private(id,i,j,k)
+	{
+	id = omp_get_thread_num();
+	nt = omp_get_num_threads();
+	printf("Thread %d/%d starts to multiply...\n",id,nt);
 
-#pragma omp parallel shared(a,b,c,ra, rb, ca, cb,nt,chunk) private(tid,i,j,k)
-  {
-  tid = omp_get_thread_num();
-  if (tid == 0)
-    {
-    nt = omp_get_num_threads();
-    printf("Threads: %d\n",nt);
-    }
-
-  printf("Thread %d starts to multiply...\n",tid);
-  #pragma omp for schedule (static, chunk)
-  for (i=0; i<ra; i++)    
-    {
-    printf("Thread %d working on row %d\n",tid,i);
-    for(j=0; j<cb; j++)       
-      for (k=0; k<ca; k++)
-        c[i][j] += a[i][k] * b[k][j];
-    }
-  }
-
-printf("\nResult:");
-print_mat(c,ra,cb);
+	#pragma omp for schedule (static, chunk)
+	for(i=0; i<ra; ++i)
+		for(j=0; j<cb; ++j)
+		    for(k=0; k<rb; ++k)
+		    {
+		        c[i][j]+=a[i][k]*b[k][j];
+		    }
+	}
+	
+	printf("\nResult:");
+	print_mat(c,ra,cb);
 
 }
