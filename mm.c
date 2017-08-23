@@ -1,29 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-void print_mat( int **m ,int rows ,int cols  )
-{
-    int i,j;
-    printf("\n");
-    for(i=0; i<rows; ++i)
-        for(j=0; j<cols; ++j)
-        {
-            printf("%d ", m[i][j]);
-            if(j == cols-1)
-                printf("\n");
-        }
-}
-
-void reserve_mat( int ***mat, int rows ,int cols )
-{
-int i;
-*mat = (int **)malloc(rows * sizeof(int*));
-for(i = 0; i < rows; i++) (*mat)[i] = (int *)calloc(cols, sizeof(int));
-}
+#include "pollux.h"
 
 int main()
 {
-    int **a, **b, **r, ra, ca, rb, cb, i, j, k;
+    int **a, **b, **r;
+    int ra, ca, rb, cb, i, j, k;
 
     printf("Size of first matrix: ");
     scanf("%d %d", &ra, &ca);
@@ -31,19 +11,15 @@ int main()
     printf("Size of second matrix: ");
     scanf("%d %d",&rb, &cb);
 
-    reserve_mat(&a,ra,ca);
-    reserve_mat(&b,rb,cb);
-    reserve_mat(&r,ra,cb);
-
-    //print_mat(a,ra,ca);
-    //print_mat(b,rb,cb);
-    //print_mat(r,ra,cb);
-
     if(ca != rb)
     {
 	printf("Error! column of first matrix not equal to row of second one.\n");
 	return 0;
     }
+
+    reserve_mat(&a,ra,ca);
+    reserve_mat(&b,rb,cb);
+    reserve_mat(&r,ra,cb);
     
     printf("Elements of first matrix:\n");
     for(i=0; i<ra; ++i)
@@ -74,5 +50,8 @@ int main()
     printf("\nResult:");
     print_mat(r,ra,cb);
 
+    free_mat(a,ra);
+    free_mat(b,rb);
+    free_mat(r,ra);
     return 0;
 }
