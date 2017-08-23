@@ -27,7 +27,7 @@ int main (int argc, char *argv[])
 	fill_mat(a ,ra ,ca);
 	fill_mat(b ,rb ,cb);	
 	print_mat(a,ra,ca);
-	print_mat(a,ra,ca);
+	print_mat(b,rb,cb);
 
 	printf("Size of chunk: ");
 	scanf("%d",&chunk);
