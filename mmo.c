@@ -1,9 +1,8 @@
 #include <omp.h>
+#include <time.h>
 #include "pollux.h"
 
-#define NRA 62                 /* number of rows in matrix A */
-#define NCA 15                 /* number of columns in matrix A */
-#define NCB 7                  /* number of columns in matrix B */
+#define SIZE 1000
 
 int main (int argc, char *argv[]) 
 {
@@ -26,17 +25,16 @@ int main (int argc, char *argv[])
 	
 	fill_mat(a ,ra ,ca);
 	fill_mat(b ,rb ,cb);	
-	print_mat(a,ra,ca);
-	print_mat(b,rb,cb);
 
 	printf("Size of chunk: ");
 	scanf("%d",&chunk);
 	
+	clock_t begin = clock();
+	
 	#pragma omp parallel shared(a,b,c,ra, rb, ca, cb,nt,chunk) private(id,i,j,k)
 	{
-	id = omp_get_thread_num();
-	nt = omp_get_num_threads();
-	printf("Thread %d/%d starts to multiply...\n",id,nt);
+	//id = omp_get_thread_num();
+	//nt = omp_get_num_threads();
 
 	#pragma omp for schedule (static, chunk)
 	for(i=0; i<ra; ++i)
@@ -46,8 +44,13 @@ int main (int argc, char *argv[])
 		        c[i][j]+=a[i][k]*b[k][j];
 		    }
 	}
+
+	clock_t end = clock();
+	double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
 	
-	printf("\nResult:");
-	print_mat(c,ra,cb);
+	printf("Spent: %f\n",time_spent);
+	free_mat(a,ra);
+	free_mat(b,rb);
+	free_mat(c,ra);
 
 }

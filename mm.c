@@ -1,4 +1,7 @@
 #include "pollux.h"
+#include <time.h>
+
+#define SIZE 1000
 
 int main()
 {
@@ -21,24 +24,10 @@ int main()
     reserve_mat(&b,rb,cb);
     reserve_mat(&r,ra,cb);
     
-    printf("Elements of first matrix:\n");
-    for(i=0; i<ra; ++i)
-        for(j=0; j<ca; ++j)
-        {
-            scanf("%d", &a[i][j]);
-        }
+    fill_mat(a ,ra ,ca);
+    fill_mat(b ,rb ,cb);
 
-    printf("Elements of second matrix:\n");
-    for(i=0; i<rb; ++i)
-        for(j=0; j<cb; ++j)
-        {
-            scanf("%d", &b[i][j]);
-        }
-
-    printf("\nFirst:");
-    print_mat(a,ra,ca);
-    printf("\nSecond:");
-    print_mat(b,rb,cb);
+    clock_t begin = clock();
 
     for(i=0; i<ra; ++i)
         for(j=0; j<cb; ++j)
@@ -46,10 +35,11 @@ int main()
             {
                 r[i][j]+=a[i][k]*b[k][j];
             }
-    
-    printf("\nResult:");
-    print_mat(r,ra,cb);
 
+    clock_t end = clock();
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    
+    printf("Spent: %f\n",time_spent);
     free_mat(a,ra);
     free_mat(b,rb);
     free_mat(r,ra);
