@@ -1,7 +1,7 @@
 #include "pollux.h"
 #include <time.h>
 
-#define SIZE 1000
+#define SIZE 100
 
 int main()
 {
@@ -28,7 +28,7 @@ int main()
     clock_t end = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
     
-    printf("Time Spent: %f\n",time_spent);
+    printf("%f\n",time_spent);
     free_mat(a,s);
     free_mat(b,s);
     free_mat(r,s);
