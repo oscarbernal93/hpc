@@ -1,5 +1,5 @@
 #include <omp.h>
-#include <time.h>
+#include <sys/time.h>
 #include "pollux.h"
 
 #define SIZE 100
@@ -12,7 +12,9 @@ int main (int argc, char *argv[])
 	}
 	int **a, **b, **c;
 	int tid, nt, id, i, j, k;
-	int s = SIZE, chunk = atoi(argv[1]); 
+	int s = SIZE, chunk = atoi(argv[1]);
+	
+	struct timeval start, end; 
 
 	reserve_mat(&a,s,s);
 	reserve_mat(&b,s,s);
@@ -21,7 +23,7 @@ int main (int argc, char *argv[])
 	fill_mat(a ,s ,s);
 	fill_mat(b ,s ,s);	
 	
-	clock_t begin = clock();
+	gettimeofday(&start, NULL);
 	
 	#pragma omp parallel shared(a,b,c,s,nt,chunk) private(id,i,j,k)
 	{
@@ -37,10 +39,11 @@ int main (int argc, char *argv[])
 		    }
 	}
 
-	clock_t end = clock();
-	double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+	gettimeofday(&end, NULL);
+
+	double delta = ((end.tv_sec  - start.tv_sec) * 1000000u + end.tv_usec - start.tv_usec) / 1.e6;
 	
-	printf("%f\n",time_spent);
+	printf("%f\n",delta);
 	free_mat(a,s);
 	free_mat(b,s);
 	free_mat(c,s);

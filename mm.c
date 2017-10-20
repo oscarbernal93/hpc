@@ -1,5 +1,5 @@
 #include "pollux.h"
-#include <time.h>
+#include <sys/time.h>
 
 #define SIZE 100
 
@@ -9,6 +9,8 @@ int main()
     int i, j, k;
     int s = SIZE;
 
+    struct timeval start, end;
+
     reserve_mat(&a,s,s);
     reserve_mat(&b,s,s);
     reserve_mat(&r,s,s);
@@ -16,7 +18,7 @@ int main()
     fill_mat(a ,s ,s);
     fill_mat(b ,s ,s);
 
-    clock_t begin = clock();
+    gettimeofday(&end, NULL);
 
     for(i=0; i<s; ++i)
         for(j=0; j<s; ++j)
@@ -25,10 +27,10 @@ int main()
                 r[i][j]+=a[i][k]*b[k][j];
             }
 
-    clock_t end = clock();
-    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    gettimeofday(&end, NULL);
+    double delta = ((end.tv_sec  - start.tv_sec) * 1000000u + end.tv_usec - start.tv_usec) / 1.e6;
     
-    printf("%f\n",time_spent);
+    printf("%f\n",delta);
     free_mat(a,s);
     free_mat(b,s);
     free_mat(r,s);
