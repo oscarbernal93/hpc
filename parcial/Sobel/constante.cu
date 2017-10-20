@@ -1,3 +1,6 @@
+#include "opencv2/core/core.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
 #include <stdio.h>
 #include <stdlib.h>
 #include <cv.h>
@@ -8,7 +11,8 @@ using namespace cv;
 
 __constant__ char gpu_kernel[9];
 
-__global__ unsigned char ajustar(int valor)
+
+__device__ unsigned char ajustar(int valor)
 {
 	if(valor < 0)
 	{
@@ -36,7 +40,7 @@ __global__ void filtro_sobel(unsigned char *origen, unsigned char *destino, int 
 			y=fil + j - 1;
 			if(x >= 0 && y >= 0 && x < ancho && y < alto)
 			{
-				valor += kernel[j*3+i]*origen[y*ancho+x];
+				valor += (gpu_kernel[j*3+i])*(origen[y*ancho+x]);
 			}
 		}
 	}
@@ -45,8 +49,9 @@ __global__ void filtro_sobel(unsigned char *origen, unsigned char *destino, int 
 
 int main(int argc, char **argv)
 {
+	cudaError_t mi_error = cudaSuccess;
 	int alto, ancho, tamanno;
-	char cpu_kernel[] = {-1,0,1,-2,0,2,-1,0,1}
+	char cpu_kernel[] = {-1,0,1,-2,0,2,-1,0,1};
 	char *nombre_imagen = argv[1];
 	char *nombre_resultado;
 	nombre_resultado = (char*)malloc(sizeof(char)*255);
@@ -64,24 +69,26 @@ int main(int argc, char **argv)
 
 	cpu_origen = (unsigned char*)malloc(tamanno);
 	cpu_destino = (unsigned char*)malloc(tamanno);
-	cudaMalloc((void**)&gpu_origen,tamanno);
-	cudaMalloc((void**)&gpu_destino,tamanno);
-	cudaMemcpyToSymbol(gpu_kernel,cpu_kernel,sizeof(char)*9);
+	mi_error = cudaMemcpyToSymbol(gpu_kernel,cpu_kernel,sizeof(char)*9);
+	if(mi_error != cudaSuccess){printf("Error con kernel\n");exit(-1);}
+	mi_error = cudaMalloc((void**)&gpu_origen,tamanno);
+	if(mi_error != cudaSuccess){printf("Error con origen\n");exit(-1);}
+	mi_error = cudaMalloc((void**)&gpu_destino,tamanno);
+	if(mi_error != cudaSuccess){printf("Error con destino\n");exit(-1);}
 	cpu_origen = imagen.data;
 
 	gettimeofday(&inicio, NULL);
 	
-	cudaMemcpy(gpu_origen,cpu_origen,tamanno, cudaMemcpyHostToDevice);
-	cudaMemcpy(gpu_kernel,cpu_kernel,sizeof(char)*9, cudaMemcpyHostToDevice);
-
+	mi_error = cudaMemcpy(gpu_origen,cpu_origen,tamanno, cudaMemcpyHostToDevice);
+	if(mi_error != cudaSuccess){printf("Error copiando origen primero \n");exit(-1);}
+	
 	int t_bloque = 32;
 	dim3 dim_bloque(t_bloque,t_bloque,1);
 	dim3 dim_rejilla(ceil(ancho/float(t_bloque)),ceil(alto/float(t_bloque)),1);
 	filtro_sobel<<<dim_rejilla,dim_bloque>>>(gpu_origen, gpu_destino, alto, ancho);
-	cudaDeviceSynchronize();
 
-	cudaMemcpy(cpu_destino,gpu_destino,tamanno, cudaMemcpyDeviceToHost);
-
+	mi_error = cudaMemcpy(cpu_destino,gpu_destino,tamanno, cudaMemcpyDeviceToHost);
+	if(mi_error != cudaSuccess){printf("Error con \n");exit(-1);}
 	gettimeofday(&fin, NULL);
 	tiempo = ((fin.tv_sec  - inicio.tv_sec) * 1000000u + fin.tv_usec - inicio.tv_usec) / 1.e6;
 	printf("%f\n",tiempo);		
@@ -89,11 +96,11 @@ int main(int argc, char **argv)
 	Mat resultado;
 	resultado.create(alto,ancho,CV_8UC1);
 	resultado.data = cpu_destino;
-	nombre_resultado = strcat(nombre_imagen,".sobel_global.jpg");
-	imwrite("./sobel_global.jpg",resultado);
+	nombre_resultado = strcat(nombre_imagen,".const.jpg");
+	imwrite(nombre_resultado,resultado);
 	
-	free(cpu_origen);
-	free(cpu_destino);
+	//free(cpu_origen);
+	//free(cpu_destino);
 	cudaFree(gpu_origen);
 	cudaFree(gpu_destino);
 	

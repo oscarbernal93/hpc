@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 	tiempo = ((fin.tv_sec  - inicio.tv_sec) * 1000000u + fin.tv_usec - inicio.tv_usec) / 1.e6;
 	printf("%f\n",tiempo);	
 	
-	nombre_resultado = strcat(nombre_imagen,".sobel_secuencial.jpg");
+	nombre_resultado = strcat(nombre_imagen,".seq.jpg");
 	imwrite(nombre_resultado,resultado);
 	
 	return 0;

@@ -1,3 +1,6 @@
+#include "opencv2/core/core.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
 #include <stdio.h>
 #include <stdlib.h>
 #include <cv.h>
@@ -8,7 +11,7 @@ using namespace cv;
 
 __constant__ char gpu_kernel[9];
 
-__global__ unsigned char ajustar(int valor)
+__device__ unsigned char ajustar(int valor)
 {
 	if(valor < 0)
 	{
@@ -24,20 +27,23 @@ __global__ unsigned char ajustar(int valor)
 __global__ void filtro_sobel(unsigned char *origen, unsigned char *destino, int alto, int ancho)
 {
 	__shared__ float chunk[1156];
+	int posicion_chunk,c_y,c_x,y,x,i,j,col,fil;
 	for(int a = 0; a <= 1024; a +=1024)
 	{
-		int posicion_chunk = threadIdx.y*32+threadIdx.x + a;
-		int c_y = posicion_chunk / (34);
-		int c_x = posicion_chunk % (34);
-		int y = blockIdx.y * 32 + c_y - 1;
-		int x = blockIdx.x * 32 + c_x - 1;
-		if (x >= 0 && y >= 0 && x < ancho && y < alto)
-		{
-			chunk[c_y*34+c_x] = imageInput[y * ancho + x];
-		}
-		else
-		{
-			chunk[c_y*34+c_x] = 0;
+		posicion_chunk = threadIdx.y*32+threadIdx.x + a;
+		c_y = posicion_chunk / (34);
+		c_x = posicion_chunk % (34);
+		y = blockIdx.y * 32 + c_y - 1;
+		x = blockIdx.x * 32 + c_x - 1;
+		if(c_x < 34 && c_y < 34){
+			if (x >= 0 && y >= 0 && x < ancho && y < alto)
+			{
+				chunk[c_y*34+c_x] = origen[y * ancho + x];
+			}
+			else
+			{
+				chunk[c_y*34+c_x] = 0;
+			}
 		}
 	}
 	__syncthreads();
@@ -46,20 +52,21 @@ __global__ void filtro_sobel(unsigned char *origen, unsigned char *destino, int 
 	{
 		for(j = 0; j <= 2; j++)
 		{
-			valor += kernel[j*3+i] chunk[(threadIdx.y+j)*34+threadIdx.x+i];
+			valor += gpu_kernel[j*3+i]*chunk[(threadIdx.y+j)*34+threadIdx.x+i];
 	    	}
 	}
 	col = blockIdx.x * 32 + threadIdx.x;
 	fil = blockIdx.y * 32 + threadIdx.y;
 	if (x >= 0 && y >= 0 && x < ancho && y < alto)
-	destino[fil*ancho+col] = ajustar(valor);
+		destino[fil*ancho+col] = ajustar(valor);
 	__syncthreads();
 }
 
 int main(int argc, char **argv)
 {
+	cudaError_t mi_error = cudaSuccess;
 	int alto, ancho, tamanno;
-	char cpu_kernel[] = {-1,0,1,-2,0,2,-1,0,1}
+	char cpu_kernel[] = {-1,0,1,-2,0,2,-1,0,1};
 	char *nombre_imagen = argv[1];
 	char *nombre_resultado;
 	nombre_resultado = (char*)malloc(sizeof(char)*255);
@@ -77,24 +84,27 @@ int main(int argc, char **argv)
 
 	cpu_origen = (unsigned char*)malloc(tamanno);
 	cpu_destino = (unsigned char*)malloc(tamanno);
-	cudaMalloc((void**)&gpu_origen,tamanno);
-	cudaMalloc((void**)&gpu_destino,tamanno);
-	cudaMemcpyToSymbol(gpu_kernel,cpu_kernel,sizeof(char)*9);
+	mi_error = cudaMemcpyToSymbol(gpu_kernel,cpu_kernel,sizeof(char)*9);
+	if(mi_error != cudaSuccess){printf("Error con kernel\n");exit(-1);}
+	mi_error = cudaMalloc((void**)&gpu_origen,tamanno);
+	if(mi_error != cudaSuccess){printf("Error con origen\n");exit(-1);}
+	mi_error = cudaMalloc((void**)&gpu_destino,tamanno);
+	if(mi_error != cudaSuccess){printf("Error con destino\n");exit(-1);}
 	cpu_origen = imagen.data;
 
 	gettimeofday(&inicio, NULL);
 	
-	cudaMemcpy(gpu_origen,cpu_origen,tamanno, cudaMemcpyHostToDevice);
-	cudaMemcpy(gpu_kernel,cpu_kernel,sizeof(char)*9, cudaMemcpyHostToDevice);
+	mi_error = cudaMemcpy(gpu_origen,cpu_origen,tamanno, cudaMemcpyHostToDevice);
+	if(mi_error != cudaSuccess){printf("Error copiando origen\n");exit(-1);}
 
-	int t_bloque = 32;
+	int t_bloque = 32;	
 	dim3 dim_bloque(t_bloque,t_bloque,1);
 	dim3 dim_rejilla(ceil(ancho/float(t_bloque)),ceil(alto/float(t_bloque)),1);
 	filtro_sobel<<<dim_rejilla,dim_bloque>>>(gpu_origen, gpu_destino, alto, ancho);
 	cudaDeviceSynchronize();
 
-	cudaMemcpy(cpu_destino,gpu_destino,tamanno, cudaMemcpyDeviceToHost);
-
+	mi_error = cudaMemcpy(cpu_destino,gpu_destino,tamanno, cudaMemcpyDeviceToHost);
+	if(mi_error != cudaSuccess){printf("Error copiando destino: %s\n",cudaGetErrorString(mi_error));exit(-1);}
 	gettimeofday(&fin, NULL);
 	tiempo = ((fin.tv_sec  - inicio.tv_sec) * 1000000u + fin.tv_usec - inicio.tv_usec) / 1.e6;
 	printf("%f\n",tiempo);		
@@ -102,11 +112,11 @@ int main(int argc, char **argv)
 	Mat resultado;
 	resultado.create(alto,ancho,CV_8UC1);
 	resultado.data = cpu_destino;
-	nombre_resultado = strcat(nombre_imagen,".sobel_global.jpg");
-	imwrite("./sobel_global.jpg",resultado);
+	nombre_resultado = strcat(nombre_imagen,".comp.jpg");
+	imwrite(nombre_resultado,resultado);
 	
-	free(cpu_origen);
-	free(cpu_destino);
+	//free(cpu_origen);
+	//free(cpu_destino);
 	cudaFree(gpu_origen);
 	cudaFree(gpu_destino);
 	
